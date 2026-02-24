@@ -79,24 +79,18 @@ export async function GET(request) {
     $('a[href*="/joueur/"]').each((_, el) => {
       const nom = $(el).text().trim();
       if (!nom) return;
-
       const row = $(el).closest('tr');
       let genre = 'H';
       if (row.find('.fa-female').length > 0 || row.text().includes('SD') || row.text().includes('DD')) genre = 'F';
-
       const parentTexte = $(el).parent().text();
       const isMute = parentTexte.includes('Muté') || row.find('.orange').length > 0;
-
       let linkHref = $(el).attr('href');
       const profilUrl = linkHref.startsWith('http') ? linkHref : `https://icbad.ffbad.org${linkHref}`;
-
       if (!joueursBase.find(j => j.nom === nom)) {
         joueursBase.push({ nom, genre, isMute, profilUrl });
       }
     });
 
-    const maSaison = getSaisonActuelle();
-    
     const joueursComplets = await Promise.all(joueursBase.map(async (joueur) => {
         try {
             const res = await fetch(joueur.profilUrl);
@@ -121,28 +115,28 @@ export async function GET(request) {
                 if (pts > maxPoints) maxPoints = pts;
             });
 
-            let compteurSup = 0;
             let currentSeasonText = null;
             let stats = { S: 0, D: 0, M: 0 };
             let paires = { doubles: {}, mixtes: {} };
             let matchsJoueurIds = [];
+            let rencontresUniquesIds = new Set();
 
             $p('table.matchs-joueur tr').each((_, row) => {
                 const $row = $p(row);
                 const rowText = $row.text().trim().toUpperCase();
-                
                 if (rowText.includes("SAISON 20")) {
                     if (currentSeasonText === null) currentSeasonText = rowText;
                     else if (rowText !== currentSeasonText) return false;
                 }
-
                 if (currentSeasonText !== null) {
                     const lienMatch = $row.find('a[href*="/rencontre/"]');
                     if (lienMatch.length > 0) {
                         const idMatch = extractRencontreId(lienMatch.attr('href'));
-                        if (idMatch) matchsJoueurIds.push(idMatch);
+                        if (idMatch) {
+                            matchsJoueurIds.push(idMatch);
+                            rencontresUniquesIds.add(idMatch);
+                        }
                     }
-
                     const tdPartenaire = $row.find('td').eq(3);
                     const lienPartenaire = tdPartenaire.find('a[href*="/joueur/"]');
                     let partenaireUrl = null;
@@ -150,79 +144,42 @@ export async function GET(request) {
                         let href = lienPartenaire.attr('href');
                         partenaireUrl = href.startsWith('http') ? href : `https://icbad.ffbad.org${href}`;
                     }
-
                     if (/\b(SH|SD)\b/.test(rowText)) stats.S++;
-                    
                     if (/\b(DH|DD)\b/.test(rowText)) {
                         stats.D++;
                         if (partenaireUrl) paires.doubles[partenaireUrl] = (paires.doubles[partenaireUrl] || 0) + 1;
                     }
-                    
                     if (/\b(DX|MX)\b/.test(rowText)) {
                         stats.M++;
                         if (partenaireUrl) paires.mixtes[partenaireUrl] = (paires.mixtes[partenaireUrl] || 0) + 1;
                     }
                 }
-
-                const lienEquipe = $row.find('a[href*="/rencontre/"]');
-                if (lienEquipe.length > 0 && configEquipe.sigle) {
-                    const matchText = lienEquipe.text();
-                    const rawTeams = matchText.match(/\([\w\d-]+\)/g);
-                    if (rawTeams) {
-                        rawTeams.forEach(teamStr => {
-                            const infoTeam = extraireInfosEquipe(teamStr);
-                            if (infoTeam && infoTeam.sigle === configEquipe.sigle) {
-                                if (infoTeam.num < configEquipe.num) compteurSup++;
-                            }
-                        });
-                    }
-                }
             });
 
-            // --- CORRECTION : Détection Profil Privé ---
             const profilPrive = clsmts.length === 0;
             let isInactif = false;
-
-            // Si le profil est privé, on ne le met JAMAIS inactif car on ne peut pas vérifier
             if (canCheckInactivity && !profilPrive) {
                 const aJoueRecemment = last3Ids.some(id => matchsJoueurIds.includes(id));
                 if (!aJoueRecemment) isInactif = true;
             }
 
-            return { ...joueur, pointsPoids: maxPoints, clst, cpphs, matchsSup: compteurSup, isBrule: compteurSup >= 3, isInactif, stats, paires, isEquipeType: false };
+            const nbRencontresJouees = rencontresUniquesIds.size;
+            const isQualifieBarrage = nbRencontresJouees >= 3 || profilPrive;
+
+            return { ...joueur, pointsPoids: maxPoints, clst, cpphs, isInactif, stats, paires, nbRencontresJouees, isQualifieBarrage, isEquipeType: false };
         } catch (e) {
-            return { ...joueur, pointsPoids: 0, clst: {S:'NC',D:'NC',M:'NC'}, cpphs: {S:0,D:0,M:0}, matchsSup: 0, isBrule: false, isInactif: false, stats: { S: 0, D: 0, M: 0 }, paires: {doubles:{}, mixtes:{}}, isEquipeType: false, erreur: true };
+            return { ...joueur, pointsPoids: 0, clst: {S:'NC',D:'NC',M:'NC'}, cpphs: {S:0,D:0,M:0}, isInactif: false, stats: { S: 0, D: 0, M: 0 }, paires: {doubles:{}, mixtes:{}}, nbRencontresJouees:0, isQualifieBarrage:true, isEquipeType: false };
         }
     }));
 
     let hommes = joueursComplets.filter(j => j.genre === 'H').sort((a,b) => b.pointsPoids - a.pointsPoids);
     let femmes = joueursComplets.filter(j => j.genre === 'F').sort((a,b) => b.pointsPoids - a.pointsPoids);
-    
     let poidsEquipe = 0;
-    
-    for(let i=0; i<3; i++) { 
-        if(hommes[i]) {
-            poidsEquipe += hommes[i].pointsPoids;
-            hommes[i].isEquipeType = true;
-        } 
-    }
-    for(let i=0; i<2; i++) { 
-        if(femmes[i]) {
-            poidsEquipe += femmes[i].pointsPoids;
-            femmes[i].isEquipeType = true;
-        } 
-    }
+    for(let i=0; i<3; i++) { if(hommes[i]) { poidsEquipe += hommes[i].pointsPoids; hommes[i].isEquipeType = true; } }
+    for(let i=0; i<2; i++) { if(femmes[i]) { poidsEquipe += femmes[i].pointsPoids; femmes[i].isEquipeType = true; } }
 
-    return NextResponse.json({ 
-      success: true, 
-      equipe: configEquipe,
-      poidsEquipe,
-      compoTypeOfficielle,
-      joueurs: joueursComplets 
-    });
-
+    return NextResponse.json({ success: true, equipe: configEquipe, poidsEquipe, compoTypeOfficielle, joueurs: joueursComplets });
   } catch (error) {
-    console.error(error);
     return NextResponse.json({ error: "Erreur d'analyse." }, { status: 500 });
   }
 }
