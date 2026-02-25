@@ -50,6 +50,7 @@ export async function GET(request) {
         if (infos) configEquipe = infos;
     });
 
+    // --- RECHERCHE DES 3 DERNIERES RENCONTRES ---
     const rencontresEquipeIds = [];
     $('a[href*="/rencontre/"]').each((_, el) => {
         const parentTr = $(el).closest('tr');
@@ -63,6 +64,7 @@ export async function GET(request) {
     const last3Ids = rencontresEquipeIds.slice(-3);
     const canCheckInactivity = last3Ids.length >= 3;
 
+    // --- RECHERCHE COMPO TYPE OFFICIELLE ---
     const compoTypeOfficielle = [];
     $('td').filter(function() {
         const txt = $(this).text().trim();
@@ -118,25 +120,47 @@ export async function GET(request) {
             let currentSeasonText = null;
             let stats = { S: 0, D: 0, M: 0 };
             let paires = { doubles: {}, mixtes: {} };
+            
             let matchsJoueurIds = [];
             let rencontresUniquesIds = new Set();
+            let rencontresSupUniques = new Set(); // Pour le calcul des brûlés
 
             $p('table.matchs-joueur tr').each((_, row) => {
                 const $row = $p(row);
                 const rowText = $row.text().trim().toUpperCase();
+                
                 if (rowText.includes("SAISON 20")) {
                     if (currentSeasonText === null) currentSeasonText = rowText;
                     else if (rowText !== currentSeasonText) return false;
                 }
+                
                 if (currentSeasonText !== null) {
                     const lienMatch = $row.find('a[href*="/rencontre/"]');
                     if (lienMatch.length > 0) {
                         const idMatch = extractRencontreId(lienMatch.attr('href'));
                         if (idMatch) {
                             matchsJoueurIds.push(idMatch);
-                            rencontresUniquesIds.add(idMatch);
+                            
+                            // CALCUL BARRAGES : Seulement pour l'équipe actuelle
+                            if (configEquipe.sigle && rowText.includes(configEquipe.sigle.toUpperCase())) {
+                                rencontresUniquesIds.add(idMatch);
+                            }
+
+                            // CALCUL BRÛLÉS : Vérifier s'il a joué dans une équipe supérieure
+                            const rawTeams = rowText.match(/\([\w\d-]+\)/g);
+                            if (rawTeams && configEquipe.sigle) {
+                                rawTeams.forEach(teamStr => {
+                                    const infoTeam = extraireInfosEquipe(teamStr);
+                                    if (infoTeam && infoTeam.sigle === configEquipe.sigle) {
+                                        if (infoTeam.num < configEquipe.num) {
+                                            rencontresSupUniques.add(idMatch);
+                                        }
+                                    }
+                                });
+                            }
                         }
                     }
+                    
                     const tdPartenaire = $row.find('td').eq(3);
                     const lienPartenaire = tdPartenaire.find('a[href*="/joueur/"]');
                     let partenaireUrl = null;
@@ -144,6 +168,7 @@ export async function GET(request) {
                         let href = lienPartenaire.attr('href');
                         partenaireUrl = href.startsWith('http') ? href : `https://icbad.ffbad.org${href}`;
                     }
+                    
                     if (/\b(SH|SD)\b/.test(rowText)) stats.S++;
                     if (/\b(DH|DD)\b/.test(rowText)) {
                         stats.D++;
@@ -157,29 +182,37 @@ export async function GET(request) {
             });
 
             const profilPrive = clsmts.length === 0;
+            
+            // INACTIF (Absent)
             let isInactif = false;
             if (canCheckInactivity && !profilPrive) {
                 const aJoueRecemment = last3Ids.some(id => matchsJoueurIds.includes(id));
                 if (!aJoueRecemment) isInactif = true;
             }
 
+            // BARRAGES
             const nbRencontresJouees = rencontresUniquesIds.size;
             const isQualifieBarrage = nbRencontresJouees >= 3 || profilPrive;
 
-            return { ...joueur, pointsPoids: maxPoints, clst, cpphs, isInactif, stats, paires, nbRencontresJouees, isQualifieBarrage, isEquipeType: false };
+            // BRÛLÉ
+            const isBrule = rencontresSupUniques.size >= 3;
+
+            return { ...joueur, pointsPoids: maxPoints, clst, cpphs, isInactif, stats, paires, nbRencontresJouees, isQualifieBarrage, isBrule, isEquipeType: false };
         } catch (e) {
-            return { ...joueur, pointsPoids: 0, clst: {S:'NC',D:'NC',M:'NC'}, cpphs: {S:0,D:0,M:0}, isInactif: false, stats: { S: 0, D: 0, M: 0 }, paires: {doubles:{}, mixtes:{}}, nbRencontresJouees:0, isQualifieBarrage:true, isEquipeType: false };
+            return { ...joueur, pointsPoids: 0, clst: {S:'NC',D:'NC',M:'NC'}, cpphs: {S:0,D:0,M:0}, isInactif: false, stats: { S: 0, D: 0, M: 0 }, paires: {doubles:{}, mixtes:{}}, nbRencontresJouees:0, isQualifieBarrage:true, isBrule: false, isEquipeType: false };
         }
     }));
 
     let hommes = joueursComplets.filter(j => j.genre === 'H').sort((a,b) => b.pointsPoids - a.pointsPoids);
     let femmes = joueursComplets.filter(j => j.genre === 'F').sort((a,b) => b.pointsPoids - a.pointsPoids);
     let poidsEquipe = 0;
+    
     for(let i=0; i<3; i++) { if(hommes[i]) { poidsEquipe += hommes[i].pointsPoids; hommes[i].isEquipeType = true; } }
     for(let i=0; i<2; i++) { if(femmes[i]) { poidsEquipe += femmes[i].pointsPoids; femmes[i].isEquipeType = true; } }
 
     return NextResponse.json({ success: true, equipe: configEquipe, poidsEquipe, compoTypeOfficielle, joueurs: joueursComplets });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Erreur d'analyse." }, { status: 500 });
   }
 }

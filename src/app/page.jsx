@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Scale, Users, User, Flame, CheckCircle, BrainCircuit, 
-  Star, Sparkles, Trash2, AlertTriangle, ShieldCheck, Search, SlidersHorizontal, FileText, ExternalLink, Crown, ShieldAlert, MessageCircleQuestion, Send, X
+  Star, Trash2, AlertTriangle, ShieldCheck, Search, SlidersHorizontal, FileText, ExternalLink, Crown, ShieldAlert, MessageCircleQuestion, Send, X
 } from 'lucide-react';
 
 const RankBadge = ({ rank, cpph }) => {
@@ -28,7 +28,6 @@ export default function Home() {
   const [resultat, setResultat] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showIA, setShowIA] = useState(false);
   const [showCompoOfficielle, setShowCompoOfficielle] = useState(false);
   const [favoris, setFavoris] = useState([]);
   
@@ -37,44 +36,28 @@ export default function Home() {
   const [hideNonQualifies, setHideNonQualifies] = useState(false);
   const [sortBy, setSortBy] = useState('default');
 
+  // --- STATES POUR LE CHATBOT ---
   const [chatOpen, setChatOpen] = useState(false);
-const [input, setInput] = useState('');
-const [messages, setMessages] = useState([]);
-const [isTyping, setIsTyping] = useState(false);
-
-const handleSendMessage = async (e) => {
-  e.preventDefault();
-  if (!input.trim()) return;
-
-  const userMsg = { role: "user", content: input };
-  setMessages(prev => [...prev, userMsg]);
-  setInput('');
-  setIsTyping(true);
-
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: [...messages, userMsg] }),
-    });
-    const data = await res.json();
-    setMessages(prev => [...prev, { role: "assistant", content: data.content }]);
-  } catch (err) {
-    setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion..." }]);
-  } finally {
-    setIsTyping(false);
-  }
-};
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const savedFavs = localStorage.getItem('icbad_favoris');
     if (savedFavs) { try { setFavoris(JSON.parse(savedFavs)); } catch (e) { setFavoris([]); } }
   }, []);
 
+  // Auto-scroll pour le chat
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isTyping]);
+
   const isFavori = favoris.some(f => f.url === url);
 
   const analyserEquipe = async (e) => {
     e.preventDefault();
-    setLoading(true); setError(''); setResultat(null); setShowIA(false); setShowCompoOfficielle(false);
+    setLoading(true); setError(''); setResultat(null); setShowCompoOfficielle(false);
     try {
       const response = await fetch(`/api/equipe?url=${encodeURIComponent(url)}`);
       const data = await response.json();
@@ -102,37 +85,31 @@ const handleSendMessage = async (e) => {
     localStorage.setItem('icbad_favoris', JSON.stringify(newFavs));
   };
 
-  const getCompoIA = () => {
-    if (!resultat) return null;
-    const dispos = resultat.joueurs.filter(j => !j.isInactif && !j.isBrule);
-    const hommes = dispos.filter(j => j.genre === 'H');
-    const femmes = dispos.filter(j => j.genre === 'F');
+  // --- FONCTION D'ENVOI DU CHATBOT ---
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
 
-    const sh = [...hommes].sort((a, b) => (b.cpphs?.S || 0) - (a.cpphs?.S || 0)).slice(0, 3);
-    const sd = [...femmes].sort((a, b) => (b.cpphs?.S || 0) - (a.cpphs?.S || 0)).slice(0, 1);
+    const userMsg = { role: "user", content: chatInput };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setIsTyping(true);
 
-    const trouverMeilleurePaire = (groupeA, groupeB, typeStats, typePaire) => {
-      let maxMatches = 0; let meilleurePaire = null;
-      for (let i = 0; i < groupeA.length; i++) {
-        for (let j = (groupeA === groupeB ? i + 1 : 0); j < groupeB.length; j++) {
-          const p1 = groupeA[i]; const p2 = groupeB[j];
-          const m = Math.max(p1.paires?.[typePaire]?.[p2.profilUrl] || 0, p2.paires?.[typePaire]?.[p1.profilUrl] || 0);
-          if (m > maxMatches) { maxMatches = m; meilleurePaire = [p1, p2]; }
-        }
-      }
-      if (maxMatches > 0) return { joueurs: meilleurePaire, communs: maxMatches };
-      const fallback = [...groupeA].sort((a, b) => (b.stats?.[typeStats] || 0) - (a.stats?.[typeStats] || 0)).slice(0, 2);
-      return { joueurs: fallback, communs: 0 };
-    };
-
-    const dhData = trouverMeilleurePaire(hommes, hommes, 'D', 'doubles');
-    const ddData = trouverMeilleurePaire(femmes, femmes, 'D', 'doubles');
-    const dxData = trouverMeilleurePaire(hommes, femmes, 'M', 'mixtes');
-
-    return { sh, sd, dh: dhData.joueurs, dhCommuns: dhData.communs, dd: ddData.joueurs, ddCommuns: ddData.communs, dx: { h: dxData.joueurs[0], f: dxData.joueurs[1] }, dxCommuns: dxData.communs };
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...chatMessages, userMsg] }),
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: "assistant", content: data.content }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Désolé, problème de connexion au règlement..." }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
-  const compo = getCompoIA();
   const nbDispos = resultat ? resultat.joueurs.filter(j => !j.isBrule && !j.isInactif).length : 0;
 
   let displayedPlayers = resultat?.joueurs || [];
@@ -140,14 +117,14 @@ const handleSendMessage = async (e) => {
   if (hideAbsents) displayedPlayers = displayedPlayers.filter(j => !j.isInactif);
   if (hideNonQualifies) displayedPlayers = displayedPlayers.filter(j => j.isQualifieBarrage);
   if (sortBy !== 'default') {
-    displayedPlayers = [...displayedPlayers].sort((a, b) => {
-      return (b.cpphs?.[sortBy] || 0) - (a.cpphs?.[sortBy] || 0);
-    });
+    displayedPlayers = [...displayedPlayers].sort((a, b) => (b.cpphs?.[sortBy] || 0) - (a.cpphs?.[sortBy] || 0));
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
+    <main className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800 pb-24">
       <div className="max-w-4xl mx-auto">
+        
+        {/* En-tête */}
         <header className="mb-8 text-center relative">
           <h1 className="text-4xl font-extrabold text-indigo-900 mb-2 flex items-center justify-center gap-3">
             <Trophy size={36} className="text-indigo-600" /> My Captain
@@ -158,6 +135,7 @@ const handleSendMessage = async (e) => {
           </a>
         </header>
 
+        {/* Bloc Recherche */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
           <form onSubmit={analyserEquipe}>
             <div className="flex justify-between items-end mb-2">
@@ -191,27 +169,27 @@ const handleSendMessage = async (e) => {
           )}
         </div>
 
+        {/* Résultats */}
         {resultat && (
           <div className="space-y-6 animate-fade-in">
             {/* Statistiques rapides */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center">
-                <p className="text-slate-500 text-sm font-bold uppercase mb-1">Équipe</p>
-                <p className="text-xl font-black text-indigo-900">{resultat.equipe.sigle || '?'}</p>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center flex flex-col items-center justify-center">
+                <p className="text-slate-500 text-sm font-bold uppercase flex items-center gap-1 mb-1"><ShieldCheck size={16} /> Équipe</p>
+                <p className="text-2xl font-black text-indigo-900">{resultat.equipe.sigle ? `${resultat.equipe.sigle} - Eq ${resultat.equipe.num}` : 'Inconnue'}</p>
               </div>
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center border-b-4 border-b-blue-500">
-                <p className="text-slate-500 text-sm font-bold uppercase mb-1 flex justify-center items-center gap-1"><Scale size={16}/> Poids</p>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center border-b-4 border-b-blue-500 flex flex-col items-center justify-center">
+                <p className="text-slate-500 text-sm font-bold uppercase flex justify-center items-center gap-1 mb-1"><Scale size={16} /> Poids Règlementaire</p>
                 <p className="text-3xl font-black text-blue-600">{resultat.poidsEquipe} <span className="text-lg">pts</span></p>
               </div>
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center">
-                <p className="text-slate-500 text-sm font-bold uppercase mb-1">Dispos</p>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center flex flex-col items-center justify-center">
+                <p className="text-slate-500 text-sm font-bold uppercase flex items-center gap-1 mb-1"><Users size={16} /> Joueurs Dispos</p>
                 <p className="text-2xl font-black text-slate-800">{nbDispos} / {resultat.joueurs.length}</p>
               </div>
             </div>
 
-            <div className="flex gap-4 mb-4 flex-col sm:flex-row">
-              <button onClick={() => setShowCompoOfficielle(!showCompoOfficielle)} className="flex-1 bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2"><FileText size={18} /> {showCompoOfficielle ? 'Masquer' : 'Voir'} Compo Officielle</button>
-              <button onClick={() => setShowIA(!showIA)} className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2"><Sparkles size={18} /> {showIA ? 'Masquer' : 'Générer'} Compo IA</button>
+            <div className="flex gap-4 mb-4">
+              <button onClick={() => setShowCompoOfficielle(!showCompoOfficielle)} className="w-full bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2"><FileText size={18} /> {showCompoOfficielle ? 'Masquer' : 'Voir'} la compo Type </button>
             </div>
 
             {/* Panneau Compo Officielle */}
@@ -222,51 +200,9 @@ const handleSendMessage = async (e) => {
                   {resultat.compoTypeOfficielle.map((c, i) => (
                     <div key={i} className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm text-center">
                       <span className="font-bold text-blue-700 block mb-2 border-b border-blue-50 pb-1">{c.match}</span>
-                      {c.joueurs.map((joueurText, k) => ( <div key={k} className="text-xs font-semibold text-slate-700">{joueurText}</div> ))}
+                      {c.joueurs.map((joueurText, k) => ( <div key={k} className="text-xs font-semibold text-slate-700 mt-1">{joueurText}</div> ))}
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Panneau Compo IA */}
-            {showIA && compo && (
-              <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200 shadow-sm animate-fade-in">
-                <h3 className="text-xl font-bold text-purple-900 mb-4 flex items-center gap-2"><BrainCircuit size={24} className="text-purple-600"/> Compo IA Stratégique</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-xl shadow-sm border border-purple-100">
-                    <h4 className="font-bold text-slate-700 border-b pb-2 mb-3">🏸 Simples</h4>
-                    <ul className="space-y-2 text-sm">
-                      {compo.sh[0] ? <li><span className="font-bold text-indigo-600 w-10 inline-block">SH1:</span> {compo.sh[0].nom}</li> : <li className="text-red-500">Manque H</li>}
-                      {compo.sh[1] ? <li><span className="font-bold text-indigo-600 w-10 inline-block">SH2:</span> {compo.sh[1].nom}</li> : <li className="text-red-500">Manque H</li>}
-                      {compo.sh[2] ? <li><span className="font-bold text-indigo-600 w-10 inline-block">SH3:</span> {compo.sh[2].nom}</li> : null}
-                      <div className="h-2"></div>
-                      {compo.sd[0] ? <li><span className="font-bold text-pink-600 w-10 inline-block">SD1:</span> {compo.sd[0].nom}</li> : <li className="text-red-500">Manque F</li>}
-                    </ul>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl shadow-sm border border-purple-100">
-                    <h4 className="font-bold text-slate-700 border-b pb-2 mb-3">👯 Doubles</h4>
-                    <ul className="space-y-2 text-sm">
-                      <li><span className="font-bold text-indigo-600 w-10 inline-block">DH :</span></li>
-                      {compo.dh[0] ? <li className="ml-10 text-slate-700">- {compo.dh[0].nom}</li> : null}
-                      {compo.dh[1] ? <li className="ml-10 text-slate-700">- {compo.dh[1].nom}</li> : null}
-                      {compo.dhCommuns > 0 && <li className="ml-10 text-[10px] text-indigo-500 italic font-semibold">✨ Paire ({compo.dhCommuns}m)</li>}
-                      <div className="h-4"></div>
-                      <li><span className="font-bold text-pink-600 w-10 inline-block">DD :</span></li>
-                      {compo.dd[0] ? <li className="ml-10 text-slate-700">- {compo.dd[0].nom}</li> : null}
-                      {compo.dd[1] ? <li className="ml-10 text-slate-700">- {compo.dd[1].nom}</li> : null}
-                      {compo.ddCommuns > 0 && <li className="ml-10 text-[10px] text-pink-500 italic font-semibold">✨ Paire ({compo.ddCommuns}m)</li>}
-                    </ul>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl shadow-sm border border-purple-100">
-                    <h4 className="font-bold text-slate-700 border-b pb-2 mb-3">👫 Mixte</h4>
-                    <ul className="space-y-2 text-sm">
-                      <li><span className="font-bold text-amber-600 w-10 inline-block">DX1 :</span></li>
-                      {compo.dx.h ? <li className="ml-10 text-slate-700 flex items-center gap-1"><User size={14} className="text-indigo-400"/> {compo.dx.h.nom}</li> : <li className="text-red-500 ml-10">Manque H</li>}
-                      {compo.dx.f ? <li className="ml-10 text-slate-700 flex items-center gap-1"><User size={14} className="text-pink-400"/> {compo.dx.f.nom}</li> : <li className="text-red-500 ml-10">Manque F</li>}
-                      {compo.dxCommuns > 0 && <li className="ml-10 text-[10px] text-amber-500 italic font-semibold">✨ Paire ({compo.dxCommuns}m)</li>}
-                    </ul>
-                  </div>
                 </div>
               </div>
             )}
@@ -302,14 +238,12 @@ const handleSendMessage = async (e) => {
                             <User size={16} className={joueur.genre === 'H' ? 'text-indigo-500' : 'text-pink-500'} /> {joueur.nom}
                             
                             {/* ÉTIQUETTES / BADGES */}
-                            {joueur.nom.toLowerCase().includes('capitaine') || (resultat.joueurs[i]?.nom === resultat.joueurs.find(x => x.isEquipeType)?.nom && i === 0) ? (
+                            {(joueur.nom.toLowerCase().includes('capitaine') || (resultat.joueurs[i]?.nom === resultat.joueurs.find(x => x.isEquipeType)?.nom && i === 0)) ? (
                               <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full uppercase font-bold border border-indigo-200 flex items-center gap-1"><Crown size={10} className="fill-indigo-500"/> Capitaine</span>
                             ) : null}
                             {joueur.isMute && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full uppercase font-bold">Muté</span>}
                             {joueur.isEquipeType && <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase font-bold flex items-center gap-1 border border-yellow-200"><Star size={10} className="fill-yellow-500"/> Type</span>}
-                            {joueur.isInactif && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full uppercase font-bold">Absent</span>}
-                            
-                            {/* --- NOUVELLE ÉTIQUETTE NQ BARRAGES --- */}
+                            {joueur.isInactif && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full uppercase font-bold border border-slate-200">Absent</span>}
                             {!joueur.isQualifieBarrage && (
                               <span className="text-[9px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full uppercase font-bold border border-red-100 flex items-center gap-1" title={`${joueur.nbRencontresJouees} rencontres jouées sur 3 requises`}>
                                 <ShieldAlert size={10}/> NQ BARRAGES
@@ -333,52 +267,77 @@ const handleSendMessage = async (e) => {
             </div>
           </div>
         )}
+
       </div>
 
-      {/* BOUTON STICKY */}
+      {/* --- BOT STICKY ASSISTANT REGLEMENT --- */}
       <button 
         onClick={() => setChatOpen(!chatOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition z-50 border-2 border-white"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center hover:scale-110 hover:bg-indigo-700 transition-all z-50 border-[3px] border-white"
+        title="Poser une question sur le règlement"
       >
-        {chatOpen ? <Trash2 size={24} /> : <MessageCircleQuestion size={24} />}
+        {chatOpen ? <X size={24} /> : <MessageCircleQuestion size={24} />}
       </button>
 
-      {/* FENETRE DE CHAT */}
       {chatOpen && (
-        <div className="fixed bottom-24 right-6 w-80 md:w-96 h-[450px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 animate-fade-in overflow-hidden">
-          <div className="bg-indigo-600 p-4 text-white font-bold flex justify-between items-center">
-            <span className="flex items-center gap-2"><BrainCircuit size={18}/> Assistant Règlement</span>
-            <button onClick={() => setChatOpen(false)}>×</button>
+        <div className="fixed bottom-24 right-6 w-80 sm:w-96 h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 overflow-hidden origin-bottom-right animate-in zoom-in duration-200">
+          
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex justify-between items-center shadow-md">
+            <div>
+              <h3 className="font-bold flex items-center gap-2"><BrainCircuit size={20}/> Bot Llama 3</h3>
+              <p className="text-[10px] text-indigo-100 opacity-90">Expert Règlement Comité 94</p>
+            </div>
+            <button onClick={() => setChatOpen(false)} className="hover:bg-white/20 p-1 rounded-lg transition"><X size={18}/></button>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-            {messages.length === 0 && (
-              <p className="text-slate-400 text-sm italic text-center mt-10">Pose-moi une question sur le règlement (ex: Brûlage, Barrages...)</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 text-sm">
+            {chatMessages.length === 0 && (
+              <div className="text-center mt-10 space-y-3">
+                <div className="bg-indigo-100 text-indigo-600 p-3 rounded-full inline-block mb-2">
+                  <ShieldCheck size={28}/>
+                </div>
+                <p className="text-slate-500 font-medium">Pose-moi une question sur le règlement du Val-de-Marne !</p>
+                <div className="flex flex-col gap-2 mt-4">
+                  <button onClick={() => setChatInput("Un joueur muté peut-il faire les barrages ?")} className="text-xs bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:border-indigo-300 text-left transition">"Un joueur muté peut-il faire les barrages ?"</button>
+                  <button onClick={() => setChatInput("Quel est le montant de l'amende pour forfait d'équipe ?")} className="text-xs bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:border-indigo-300 text-left transition">"Quel est le montant de l'amende pour forfait d'équipe ?"</button>
+                </div>
+              </div>
             )}
-            {messages.map((m, i) => (
+            
+            {chatMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-700 shadow-sm'}`}>
+                <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'}`}>
                   {m.content}
                 </div>
               </div>
             ))}
-            {isTyping && <div className="text-xs text-slate-400 animate-pulse">Llama est en train de réfléchir...</div>}
+            
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-slate-200 text-slate-400 p-3 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-2">
+                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce"></span>
+                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce delay-75"></span>
+                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce delay-150"></span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={handleSendMessage} className="p-4 border-t bg-white flex gap-2">
+          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 bg-white flex gap-2 items-center">
             <input 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ta question..."
-              className="flex-1 text-sm p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Pose ta question..."
+              className="flex-1 text-sm p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
-            <button type="submit" className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700">
-              <Search size={18} />
+            <button type="submit" disabled={!chatInput.trim() || isTyping} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+              <Send size={18} />
             </button>
           </form>
+
         </div>
       )}
-
     </main>
   );
 }
