@@ -139,7 +139,7 @@ export default function Home() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
           <form onSubmit={analyserEquipe}>
             <div className="flex justify-between items-end mb-2">
-              <label className="block text-sm font-bold text-slate-700">Lien de la rencontre ICBaD :</label>
+              <label className="block text-sm font-bold text-slate-700">Lien de l'équipe sur ICBaD :</label>
               {url.includes('icbad.ffbad.org') && (
                 <button type="button" onClick={toggleFavori} className={`text-sm font-bold px-3 py-1 rounded-full transition flex items-center gap-1 ${isFavori ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                   <Star size={14} className={isFavori ? "fill-yellow-500" : ""} /> {isFavori ? 'Retirer' : 'Sauvegarder'}
@@ -284,7 +284,7 @@ export default function Home() {
           
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex justify-between items-center shadow-md">
             <div>
-              <h3 className="font-bold flex items-center gap-2"><BrainCircuit size={20}/> Bot Llama 3</h3>
+              <h3 className="font-bold flex items-center gap-2"><BrainCircuit size={20}/> Bot Interclubs</h3>
               <p className="text-[10px] text-indigo-100 opacity-90">Expert Règlement Comité 94</p>
             </div>
             <button onClick={() => setChatOpen(false)} className="hover:bg-white/20 p-1 rounded-lg transition"><X size={18}/></button>
