@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Trophy, Scale, Users, User, Flame, CheckCircle, BrainCircuit, 
-  Star, Sparkles, Trash2, AlertTriangle, ShieldCheck, Search, SlidersHorizontal, FileText, ExternalLink, Crown, ShieldAlert
+  Star, Sparkles, Trash2, AlertTriangle, ShieldCheck, Search, SlidersHorizontal, FileText, ExternalLink, Crown, ShieldAlert, MessageCircleQuestion, Send, X
 } from 'lucide-react';
 
 const RankBadge = ({ rank, cpph }) => {
@@ -36,6 +36,34 @@ export default function Home() {
   const [hideAbsents, setHideAbsents] = useState(false);
   const [hideNonQualifies, setHideNonQualifies] = useState(false);
   const [sortBy, setSortBy] = useState('default');
+
+  const [chatOpen, setChatOpen] = useState(false);
+const [input, setInput] = useState('');
+const [messages, setMessages] = useState([]);
+const [isTyping, setIsTyping] = useState(false);
+
+const handleSendMessage = async (e) => {
+  e.preventDefault();
+  if (!input.trim()) return;
+
+  const userMsg = { role: "user", content: input };
+  setMessages(prev => [...prev, userMsg]);
+  setInput('');
+  setIsTyping(true);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [...messages, userMsg] }),
+    });
+    const data = await res.json();
+    setMessages(prev => [...prev, { role: "assistant", content: data.content }]);
+  } catch (err) {
+    setMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion..." }]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   useEffect(() => {
     const savedFavs = localStorage.getItem('icbad_favoris');
@@ -306,6 +334,51 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* BOUTON STICKY */}
+      <button 
+        onClick={() => setChatOpen(!chatOpen)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition z-50 border-2 border-white"
+      >
+        {chatOpen ? <Trash2 size={24} /> : <MessageCircleQuestion size={24} />}
+      </button>
+
+      {/* FENETRE DE CHAT */}
+      {chatOpen && (
+        <div className="fixed bottom-24 right-6 w-80 md:w-96 h-[450px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 animate-fade-in overflow-hidden">
+          <div className="bg-indigo-600 p-4 text-white font-bold flex justify-between items-center">
+            <span className="flex items-center gap-2"><BrainCircuit size={18}/> Assistant Règlement</span>
+            <button onClick={() => setChatOpen(false)}>×</button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+            {messages.length === 0 && (
+              <p className="text-slate-400 text-sm italic text-center mt-10">Pose-moi une question sur le règlement (ex: Brûlage, Barrages...)</p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-700 shadow-sm'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {isTyping && <div className="text-xs text-slate-400 animate-pulse">Llama est en train de réfléchir...</div>}
+          </div>
+
+          <form onSubmit={handleSendMessage} className="p-4 border-t bg-white flex gap-2">
+            <input 
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ta question..."
+              className="flex-1 text-sm p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button type="submit" className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700">
+              <Search size={18} />
+            </button>
+          </form>
+        </div>
+      )}
+
     </main>
   );
 }
