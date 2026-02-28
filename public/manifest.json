@@ -1,0 +1,23 @@
+{
+  "name": "My Captain",
+  "short_name": "My Captain",
+  "description": "Assistant ultime pour les capitaines d'Interclubs Comité 94",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/mycaptain_logo_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mycaptain_logo_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Trophy, Scale, Users, User, Flame, CheckCircle, BrainCircuit, 
+  Scale, Users, User, Flame, CheckCircle, BrainCircuit, 
   Star, Trash2, AlertTriangle, ShieldCheck, Search, SlidersHorizontal, FileText, ExternalLink, Crown, ShieldAlert, MessageCircleQuestion, Send, X
 } from 'lucide-react';
 
@@ -15,7 +15,7 @@ const RankBadge = ({ rank, cpph }) => {
 
   return (
     <span 
-      className={`inline-block w-8 text-center py-1 rounded text-xs font-bold cursor-help shadow-sm transition hover:scale-110 ${colorClass}`}
+      className={`inline-block w-8 text-center py-1 rounded text-xs font-bold shadow-sm transition hover:scale-110 ${colorClass}`}
       title={`${cpph || 0} CPPH`}
     >
       {rank || 'NC'}
@@ -36,7 +36,6 @@ export default function Home() {
   const [hideNonQualifies, setHideNonQualifies] = useState(false);
   const [sortBy, setSortBy] = useState('default');
 
-  // --- STATES POUR LE CHATBOT ---
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -48,7 +47,6 @@ export default function Home() {
     if (savedFavs) { try { setFavoris(JSON.parse(savedFavs)); } catch (e) { setFavoris([]); } }
   }, []);
 
-  // Auto-scroll pour le chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isTyping]);
@@ -85,16 +83,13 @@ export default function Home() {
     localStorage.setItem('icbad_favoris', JSON.stringify(newFavs));
   };
 
-  // --- FONCTION D'ENVOI DU CHATBOT ---
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-
     const userMsg = { role: "user", content: chatInput };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput('');
     setIsTyping(true);
-
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -104,7 +99,7 @@ export default function Home() {
       const data = await res.json();
       setChatMessages(prev => [...prev, { role: "assistant", content: data.content }]);
     } catch (err) {
-      setChatMessages(prev => [...prev, { role: "assistant", content: "Désolé, problème de connexion au règlement..." }]);
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Erreur de connexion..." }]);
     } finally {
       setIsTyping(false);
     }
@@ -121,47 +116,66 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800 pb-24">
-      <div className="max-w-4xl mx-auto">
+    <main className={`min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800 pb-24 transition-all duration-700 flex flex-col ${!resultat ? 'justify-center items-center' : 'pt-[50px]'}`}>
+      <div className="max-w-4xl mx-auto w-full transition-all duration-700">
         
         {/* En-tête */}
-        <header className="mb-8 text-center relative">
-          <h1 className="text-4xl font-extrabold text-indigo-900 mb-2 flex items-center justify-center gap-3">
-            <Trophy size={36} className="text-indigo-600" /> My Captain
+        <header className="mb-8 text-center relative animate-fade-in flex flex-col items-center">
+          <h1 
+            style={{ fontFamily: "'MonumentExtended', sans-serif" }}
+            className="text-3xl md:text-5xl font-extrabold mb-3 flex items-center justify-center gap-4 text-indigo-600 normal-case leading-tight"
+          >
+            <img 
+              src="/mycaptain_logo.svg" 
+              alt="Logo" 
+              className="w-10 h-10 md:w-14 md:h-14 object-contain shrink-0" 
+            />
+            My Captain
           </h1>
-          <p className="text-slate-500 mb-4">L'assistant ultime pour les capitaines ICBaD</p>
-          <a href="https://icbad.ffbad.org" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full text-xs font-bold transition shadow-sm">
+          <p className="text-slate-500 mb-6 font-medium tracking-tight">L'assistant ultime pour les capitaines ICBaD</p>
+          <a href="https://icbad.ffbad.org" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-full text-xs font-bold transition shadow-sm">
             Accéder au site ICBaD <ExternalLink size={14} />
           </a>
         </header>
 
         {/* Bloc Recherche */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div className="bg-white p-6 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 mb-10 transition-all hover:shadow-2xl">
           <form onSubmit={analyserEquipe}>
-            <div className="flex justify-between items-end mb-2">
-              <label className="block text-sm font-bold text-slate-700">Lien de l'équipe sur ICBaD :</label>
+            <div className="flex justify-between items-end mb-3">
+              <label className="block text-sm font-bold text-slate-700 ml-1 uppercase tracking-wider">Lien de l'équipe sur ICBaD :</label>
               {url.includes('icbad.ffbad.org') && (
-                <button type="button" onClick={toggleFavori} className={`text-sm font-bold px-3 py-1 rounded-full transition flex items-center gap-1 ${isFavori ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-                  <Star size={14} className={isFavori ? "fill-yellow-500" : ""} /> {isFavori ? 'Retirer' : 'Sauvegarder'}
+                <button type="button" onClick={toggleFavori} className={`text-xs font-bold px-4 py-1.5 rounded-full transition flex items-center gap-1.5 ${isFavori ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                  <Star size={14} className={isFavori ? "fill-yellow-500" : ""} /> {isFavori ? 'Retirer' : 'Enregistrer'}
                 </button>
               )}
             </div>
-            <div className="flex flex-col md:flex-row gap-3">
-              <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Ex: https://icbad.ffbad.org/equipe/..." className="flex-1 p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" required />
-              <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 min-w-[150px]">
-                <Search size={18} /> {loading ? 'Analyse...' : 'Scanner'}
+            <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                type="url" 
+                value={url} 
+                onChange={(e) => setUrl(e.target.value)} 
+                placeholder="https://icbad.ffbad.org/equipe/..." 
+                className="flex-1 p-4 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition text-sm" 
+                required 
+              />
+              <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 px-10 rounded-2xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 lowercase">
+                <Search size={20} /> {loading ? 'scan...' : 'scanner'}
               </button>
             </div>
-            {error && <p className="text-red-500 mt-3 text-sm font-medium text-right flex items-center justify-end gap-1"><AlertTriangle size={14}/> {error}</p>}
+            {error && <p className="text-rose-500 mt-4 text-sm font-bold flex items-center gap-2"><AlertTriangle size={16}/> {error}</p>}
           </form>
+
+          {/* Section FAVORIS CENTRÉE */}
           {favoris.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 mb-3 uppercase flex items-center gap-1"><Star size={14} /> Favorites</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="mt-8 pt-6 border-t border-slate-50 flex flex-col items-center">
+              <p className="text-[10px] font-black text-slate-400 mb-4 uppercase tracking-[0.2em] flex items-center gap-2 justify-center">
+                <Star size={12} /> FAVORIS RÉCENTS
+              </p>
+              <div className="flex flex-wrap gap-3 justify-center">
                 {favoris.map((fav, index) => (
-                  <div key={index} className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden group hover:border-indigo-300 transition">
-                    <button type="button" onClick={() => setUrl(fav.url)} className="px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition">{fav.nom}</button>
-                    <button type="button" onClick={() => supprimerFavori(fav.url)} className="px-2 py-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 transition border-l border-slate-200"><Trash2 size={14} /></button>
+                  <div key={index} className="flex items-center bg-slate-50 border border-slate-100 rounded-xl overflow-hidden group hover:border-indigo-300 transition shadow-sm">
+                    <button type="button" onClick={() => setUrl(fav.url)} className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-white transition">{fav.nom}</button>
+                    <button type="button" onClick={() => supprimerFavori(fav.url)} className="px-3 py-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition border-l border-slate-100"><Trash2 size={14} /></button>
                   </div>
                 ))}
               </div>
@@ -169,98 +183,96 @@ export default function Home() {
           )}
         </div>
 
-        {/* Résultats */}
         {resultat && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Statistiques rapides */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center flex flex-col items-center justify-center">
-                <p className="text-slate-500 text-sm font-bold uppercase flex items-center gap-1 mb-1"><ShieldCheck size={16} /> Équipe</p>
-                <p className="text-2xl font-black text-indigo-900">{resultat.equipe.sigle ? `${resultat.equipe.sigle} - Eq ${resultat.equipe.num}` : 'Inconnue'}</p>
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Équipe</p>
+                <p className="text-xl font-bold text-slate-900">{resultat.equipe.sigle || '?'}</p>
               </div>
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center border-b-4 border-b-blue-500 flex flex-col items-center justify-center">
-                <p className="text-slate-500 text-sm font-bold uppercase flex justify-center items-center gap-1 mb-1"><Scale size={16} /> Poids Règlementaire</p>
-                <p className="text-3xl font-black text-blue-600">{resultat.poidsEquipe} <span className="text-lg">pts</span></p>
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm border-b-4 border-b-indigo-500 flex flex-col items-center justify-center">
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-1"><Scale size={14}/> Poids Règlementaire</p>
+                <p className="text-4xl font-black text-indigo-600">{resultat.poidsEquipe} <span className="text-sm font-bold text-slate-400 uppercase tracking-normal">pts</span></p>
               </div>
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center flex flex-col items-center justify-center">
-                <p className="text-slate-500 text-sm font-bold uppercase flex items-center gap-1 mb-1"><Users size={16} /> Joueurs Dispos</p>
-                <p className="text-2xl font-black text-slate-800">{nbDispos} / {resultat.joueurs.length}</p>
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center">
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Disponibles</p>
+                <p className="text-xl font-bold text-slate-900">{nbDispos} <span className="text-slate-300 font-medium">/ {resultat.joueurs.length}</span></p>
               </div>
             </div>
 
-            <div className="flex gap-4 mb-4">
-              <button onClick={() => setShowCompoOfficielle(!showCompoOfficielle)} className="w-full bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2"><FileText size={18} /> {showCompoOfficielle ? 'Masquer' : 'Voir'} la compo Type </button>
-            </div>
+            <button onClick={() => setShowCompoOfficielle(!showCompoOfficielle)} className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 px-6 rounded-2xl shadow-xl transition flex items-center justify-center gap-3 text-sm">
+              <FileText size={20} /> {showCompoOfficielle ? 'MASQUER' : 'VOIR'} LA COMPO TYPE OFFICIELLE
+            </button>
 
-            {/* Panneau Compo Officielle */}
             {showCompoOfficielle && resultat.compoTypeOfficielle && (
-              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200 shadow-sm animate-fade-in">
-                <h3 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2"><FileText size={24} className="text-blue-600"/> Compo Type Officielle</h3>
+              <div className="bg-indigo-50 p-8 rounded-[2.5rem] border border-indigo-100 shadow-inner animate-in fade-in zoom-in-95 duration-500">
+                <h3 className="text-lg font-black text-indigo-900 mb-6 flex items-center gap-3 uppercase tracking-tighter"><FileText size={22} className="text-indigo-600"/> Composition de Base</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {resultat.compoTypeOfficielle.map((c, i) => (
-                    <div key={i} className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm text-center">
-                      <span className="font-bold text-blue-700 block mb-2 border-b border-blue-50 pb-1">{c.match}</span>
-                      {c.joueurs.map((joueurText, k) => ( <div key={k} className="text-xs font-semibold text-slate-700 mt-1">{joueurText}</div> ))}
+                    <div key={i} className="bg-white p-4 rounded-2xl border border-indigo-100/50 shadow-sm">
+                      <span className="font-black text-indigo-700 text-[10px] block mb-2 border-b border-indigo-50 pb-2 tracking-widest">{c.match}</span>
+                      {c.joueurs.map((joueurText, k) => ( 
+                        <div key={k} className="text-xs font-bold text-slate-700 mt-1 leading-tight">{joueurText}</div> 
+                      ))}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Tableau principal */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
-              <div className="flex flex-col md:flex-row justify-between items-center bg-slate-50 p-4 border-b border-slate-200 gap-4">
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer group"><input type="checkbox" checked={hideBrules} onChange={e => setHideBrules(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300" /><span className="text-[11px] font-bold text-slate-600">CACHER BRÛLÉS</span></label>
-                  <label className="flex items-center gap-1.5 cursor-pointer group"><input type="checkbox" checked={hideAbsents} onChange={e => setHideAbsents(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300" /><span className="text-[11px] font-bold text-slate-600">CACHER ABSENTS</span></label>
-                  <label className="flex items-center gap-1.5 cursor-pointer group"><input type="checkbox" checked={hideNonQualifies} onChange={e => setHideNonQualifies(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300" /><span className="text-[11px] font-bold text-slate-600">CACHER NQ BARRAGES</span></label>
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+              <div className="flex flex-col md:flex-row justify-between items-center bg-slate-50/50 p-6 border-b border-slate-100 gap-6">
+                <div className="flex flex-wrap justify-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer group"><input type="checkbox" checked={hideBrules} onChange={e => setHideBrules(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-lg border-slate-200" /><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CACHER BRÛLÉS</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer group"><input type="checkbox" checked={hideAbsents} onChange={e => setHideAbsents(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-lg border-slate-200" /><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CACHER ABSENTS</span></label>
+                  <label className="flex items-center gap-2 cursor-pointer group"><input type="checkbox" checked={hideNonQualifies} onChange={e => setHideNonQualifies(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-lg border-slate-200" /><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">BARRAGES NQ</span></label>
                 </div>
-                <div className="flex items-center gap-2"><SlidersHorizontal size={14} className="text-slate-400"/>
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border border-slate-300 rounded-lg py-1 px-2 text-[11px] font-bold bg-white outline-none">
-                    <option value="default">TRI : DÉFAUT</option>
-                    <option value="S">TRI : SIMPLE</option>
-                    <option value="D">TRI : DOUBLE</option>
-                    <option value="M">TRI : MIXTE</option>
+                <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl border border-slate-100"><SlidersHorizontal size={14} className="text-indigo-400"/>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="text-[10px] font-black bg-transparent outline-none uppercase tracking-widest text-slate-600">
+                    <option value="default">TRI PAR DÉFAUT</option>
+                    <option value="S">TRI PAR SIMPLE</option>
+                    <option value="D">TRI PAR DOUBLE</option>
+                    <option value="M">TRI PAR MIXTE</option>
                   </select>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-white text-slate-500 uppercase font-bold text-[10px] border-b border-slate-100">
-                    <tr><th className="p-4">Joueur</th><th className="p-4">Statut</th><th className="p-4 text-center">Classements (S/D/M)</th></tr>
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50/30 text-slate-400 uppercase font-black text-[9px] tracking-[0.2em] border-b border-slate-100">
+                    <tr><th className="p-6">Joueur</th><th className="p-6">Statut</th><th className="p-6 text-center">Classements (S/D/M)</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {displayedPlayers.length > 0 ? (
-                      displayedPlayers.map((joueur, i) => (
-                        <tr key={i} className={`hover:bg-slate-50 transition ${joueur.isBrule ? 'bg-red-50/20' : ''}`}>
-                          <td className="p-4 font-semibold text-slate-800 flex items-center flex-wrap gap-2">
-                            <User size={16} className={joueur.genre === 'H' ? 'text-indigo-500' : 'text-pink-500'} /> {joueur.nom}
-                            
-                            {/* ÉTIQUETTES / BADGES */}
-                            {(joueur.nom.toLowerCase().includes('capitaine') || (resultat.joueurs[i]?.nom === resultat.joueurs.find(x => x.isEquipeType)?.nom && i === 0)) ? (
-                              <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full uppercase font-bold border border-indigo-200 flex items-center gap-1"><Crown size={10} className="fill-indigo-500"/> Capitaine</span>
-                            ) : null}
-                            {joueur.isMute && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full uppercase font-bold">Muté</span>}
-                            {joueur.isEquipeType && <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full uppercase font-bold flex items-center gap-1 border border-yellow-200"><Star size={10} className="fill-yellow-500"/> Type</span>}
-                            {joueur.isInactif && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full uppercase font-bold border border-slate-200">Absent</span>}
-                            {!joueur.isQualifieBarrage && (
-                              <span className="text-[9px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full uppercase font-bold border border-red-100 flex items-center gap-1" title={`${joueur.nbRencontresJouees} rencontres jouées sur 3 requises`}>
-                                <ShieldAlert size={10}/> NQ BARRAGES
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {joueur.isBrule ? <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-700 font-bold px-2 py-1 rounded-full"><Flame size={12}/> BRÛLÉ</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded-full"><CheckCircle size={12}/> OK</span>}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex justify-center gap-2">
-                              <RankBadge rank={joueur.clst?.S} cpph={joueur.cpphs?.S} /><RankBadge rank={joueur.clst?.D} cpph={joueur.cpphs?.D} /><RankBadge rank={joueur.clst?.M} cpph={joueur.cpphs?.M} />
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : ( <tr><td colSpan="3" className="p-6 text-center text-slate-400 font-medium">Aucun joueur à afficher.</td></tr> )}
+                    {displayedPlayers.map((joueur, i) => (
+                      <tr key={i} className={`hover:bg-slate-50/80 transition-colors ${joueur.isBrule ? 'bg-rose-50/10' : ''}`}>
+                        <td className="p-6 font-bold text-slate-800 flex items-center flex-wrap gap-2">
+                          <User size={18} className={joueur.genre === 'H' ? 'text-indigo-500' : 'text-rose-500'} /> 
+                          <span className="text-sm tracking-tight">{joueur.nom}</span>
+                          
+                          {(joueur.nom.toLowerCase().includes('capitaine') || (resultat.joueurs[i]?.nom === resultat.joueurs.find(x => x.isEquipeType)?.nom && i === 0)) && (
+                            <span className="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full uppercase font-black border border-indigo-200 flex items-center gap-1"><Crown size={10} className="fill-indigo-500"/> Cap.</span>
+                          )}
+                          {joueur.isMute && <span className="text-[9px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full uppercase font-black border border-orange-200">Muté</span>}
+                          {joueur.isEquipeType && <span className="text-[9px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full uppercase font-black border border-yellow-200 flex items-center gap-1"><Star size={10} className="fill-yellow-500"/> Type</span>}
+                          {joueur.isInactif && <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full uppercase font-black border border-slate-300">Absent</span>}
+                          {!joueur.isQualifieBarrage && <span className="text-[9px] bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full uppercase font-black border border-rose-200 flex items-center gap-1"><ShieldAlert size={10}/> NQ BARRAGES</span>}
+                        </td>
+                        <td className="p-6">
+                          {joueur.isBrule ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] bg-rose-500 text-white font-black px-3 py-1.5 rounded-full shadow-lg shadow-rose-100"><Flame size={12}/> BRÛLÉ</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-100 text-emerald-700 font-black px-3 py-1.5 rounded-full"><CheckCircle size={12}/> OK</span>
+                          )}
+                        </td>
+                        <td className="p-6">
+                          <div className="flex justify-center gap-3">
+                            <RankBadge rank={joueur.clst?.S} cpph={joueur.cpphs?.S} />
+                            <RankBadge rank={joueur.clst?.D} cpph={joueur.cpphs?.D} />
+                            <RankBadge rank={joueur.clst?.M} cpph={joueur.cpphs?.M} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -270,72 +282,64 @@ export default function Home() {
 
       </div>
 
-      {/* --- BOT STICKY ASSISTANT REGLEMENT --- */}
+      {/* Bouton Chatbot */}
       <button 
         onClick={() => setChatOpen(!chatOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center hover:scale-110 hover:bg-indigo-700 transition-all z-50 border-[3px] border-white"
-        title="Poser une question sur le règlement"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 hover:rotate-12 transition-all z-50 border-[4px] border-white"
       >
-        {chatOpen ? <X size={24} /> : <MessageCircleQuestion size={24} />}
+        {chatOpen ? <X size={28} /> : <MessageCircleQuestion size={28} />}
       </button>
 
+      {/* Fenêtre Chat */}
       {chatOpen && (
-        <div className="fixed bottom-24 right-6 w-80 sm:w-96 h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 overflow-hidden origin-bottom-right animate-in zoom-in duration-200">
-          
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex justify-between items-center shadow-md">
+        <div className="fixed bottom-24 right-6 w-[22rem] sm:w-96 h-[550px] bg-white rounded-[2rem] shadow-2xl flex flex-col z-50 border border-slate-100 overflow-hidden origin-bottom-right animate-in zoom-in duration-300">
+          <div className="bg-indigo-600 p-6 text-white flex justify-between items-center shadow-lg">
             <div>
-              <h3 className="font-bold flex items-center gap-2"><BrainCircuit size={20}/> Bot Interclubs</h3>
-              <p className="text-[10px] text-indigo-100 opacity-90">Expert Règlement Comité 94</p>
+              <h3 className="font-black text-sm tracking-tight flex items-center gap-2 uppercase"><BrainCircuit size={18}/> Assistant Règlement</h3>
+              <p className="text-[10px] font-bold text-indigo-100 tracking-widest mt-1 opacity-80 uppercase">Llama 3 • Comité 94</p>
             </div>
-            <button onClick={() => setChatOpen(false)} className="hover:bg-white/20 p-1 rounded-lg transition"><X size={18}/></button>
+            <button onClick={() => setChatOpen(false)} className="bg-white/20 hover:bg-white/40 p-2 rounded-xl transition"><X size={18}/></button>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 text-sm">
+          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/50">
             {chatMessages.length === 0 && (
-              <div className="text-center mt-10 space-y-3">
-                <div className="bg-indigo-100 text-indigo-600 p-3 rounded-full inline-block mb-2">
-                  <ShieldCheck size={28}/>
+              <div className="text-center mt-12 space-y-4">
+                <div className="bg-indigo-100 text-indigo-600 p-4 rounded-3xl inline-block">
+                  <ShieldCheck size={32}/>
                 </div>
-                <p className="text-slate-500 font-medium">Pose-moi une question sur le règlement du Val-de-Marne !</p>
-                <div className="flex flex-col gap-2 mt-4">
-                  <button onClick={() => setChatInput("Un joueur muté peut-il faire les barrages ?")} className="text-xs bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:border-indigo-300 text-left transition">"Un joueur muté peut-il faire les barrages ?"</button>
-                  <button onClick={() => setChatInput("Quel est le montant de l'amende pour forfait d'équipe ?")} className="text-xs bg-white border border-slate-200 p-2 rounded-lg text-slate-600 hover:border-indigo-300 text-left transition">"Quel est le montant de l'amende pour forfait d'équipe ?"</button>
-                </div>
+                <p className="text-slate-500 font-bold text-xs uppercase tracking-widest leading-loose">Pose-moi une question sur le règlement !</p>
               </div>
             )}
-            
             {chatMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'}`}>
+                <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm text-xs leading-relaxed font-bold ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'}`}>
                   {m.content}
                 </div>
               </div>
             ))}
-            
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-white border border-slate-200 text-slate-400 p-3 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-2">
-                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce"></span>
-                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce delay-75"></span>
-                  <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce delay-150"></span>
+                <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce delay-100"></div>
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce delay-200"></div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 bg-white flex gap-2 items-center">
+          <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 bg-white flex gap-3 items-center">
             <input 
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Pose ta question..."
-              className="flex-1 text-sm p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              placeholder="Question..."
+              className="flex-1 text-xs font-bold p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition"
             />
-            <button type="submit" disabled={!chatInput.trim() || isTyping} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="submit" disabled={!chatInput.trim() || isTyping} className="bg-indigo-600 text-white p-4 rounded-2xl hover:bg-indigo-700 transition disabled:opacity-30 shadow-lg shadow-indigo-100">
               <Send size={18} />
             </button>
           </form>
-
         </div>
       )}
     </main>
