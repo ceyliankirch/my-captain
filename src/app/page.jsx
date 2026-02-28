@@ -158,8 +158,8 @@ export default function Home() {
                 className="flex-1 p-4 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition text-sm" 
                 required 
               />
-              <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 px-10 rounded-2xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 lowercase">
-                <Search size={20} /> {loading ? 'scan...' : 'scanner'}
+              <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-4 px-10 rounded-2xl transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                <Search size={20} /> {loading ? 'Scan...' : 'Scanner'}
               </button>
             </div>
             {error && <p className="text-rose-500 mt-4 text-sm font-bold flex items-center gap-2"><AlertTriangle size={16}/> {error}</p>}
