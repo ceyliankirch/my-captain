@@ -9,11 +9,10 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Cette ligne vide indique à Next.js de ne pas paniquer 
-  // face à la configuration Webpack de next-pwa
+  // Ajoute ce bloc pour corriger l'erreur de build
   experimental: {
-    turbopack: {},
-  }
+    turbopack: {}, 
+  },
 };
 
 export default withPWA(nextConfig);
