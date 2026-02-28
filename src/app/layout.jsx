@@ -30,7 +30,7 @@ export default function RootLayout({ children }) {
     <html lang="fr" className={`${montserrat.variable}`}>
       <head>
         {/* Icône pour l'écran d'accueil iOS */}
-        <link rel="apple-touch-icon" href="/mycaptain_logo.png" />
+        <link rel="apple-touch-icon" href="/mycaptain_logo_512.png" />
       </head>
       <body className="antialiased">
         {children}
